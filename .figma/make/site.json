@@ -1,0 +1,10 @@
+{
+  "description": "Streamline your workflow by automating tasks based on file contents, enhancing productivity for professionals and teams.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
