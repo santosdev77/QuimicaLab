@@ -8,6 +8,9 @@ import LabPage from "../pages/LabPage";
 import QuizPage from "../pages/QuizPage";
 import ProfilePage from "../pages/ProfilePage";
 import DashboardPage from "../pages/DashboardPage";
+import ChemistryCalculatorPage from "../pages/ChemistryCalculatorPage";
+import ProtectedRoute from "../auth/ProtectedRoute";
+import { ForgotPasswordPage, LoginPage, RegisterPage } from "../pages/AuthPages";
 
 export const router = createBrowserRouter([
   {
@@ -20,8 +23,15 @@ export const router = createBrowserRouter([
       { path: "aprender", Component: LearnPage },
       { path: "laboratorio", Component: LabPage },
       { path: "desafios", Component: QuizPage },
-      { path: "perfil", Component: ProfilePage },
       { path: "conquistas", Component: DashboardPage },
+      { path: "calculadora", Component: ChemistryCalculatorPage },
+      { path: "login", Component: LoginPage },
+      { path: "cadastro", Component: RegisterPage },
+      { path: "esqueci-senha", Component: ForgotPasswordPage },
+      { Component: ProtectedRoute, children: [
+        { path: "dashboard", Component: DashboardPage },
+        { path: "perfil", Component: ProfilePage },
+      ] },
       { path: "*", Component: () => (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">

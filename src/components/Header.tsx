@@ -1,15 +1,20 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router";
+import { useAuth } from "../auth/AuthContext";
+import { supabase } from "../lib/supabase";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const signOut = async () => { await supabase.auth.signOut(); navigate("/"); };
 
   const navItems = [
     { to: "/", label: "Início" },
     { to: "/tabela", label: "Tabela Periódica" },
     { to: "/aprender", label: "Aprenda" },
     { to: "/laboratorio", label: "Laboratório" },
+    { to: "/calculadora", label: "Calculadora" },
     { to: "/desafios", label: "Desafios" },
   ];
 
@@ -58,7 +63,7 @@ export default function Header() {
           {/* Right actions */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("/aprender")}
+              onClick={() => navigate(user ? "/dashboard" : "/login")}
               className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
               Começar a estudar
@@ -66,13 +71,18 @@ export default function Header() {
 
             {/* Avatar */}
             <button
-              onClick={() => navigate("/perfil")}
+              onClick={() => navigate(user ? "/perfil" : "/cadastro")}
               className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center hover:bg-blue-200 transition-colors"
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5 text-blue-600 fill-current">
                 <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
               </svg>
             </button>
+            {user && (
+              <button onClick={() => void signOut()} className="hidden lg:block text-sm font-semibold text-slate-500 hover:text-red-600">
+                Sair
+              </button>
+            )}
 
             {/* Mobile burger */}
             <button
@@ -106,6 +116,8 @@ export default function Header() {
                 {item.label}
               </NavLink>
             ))}
+            {!user && <button onClick={() => { setMenuOpen(false); navigate("/cadastro"); }} className="px-4 py-2 text-left text-sm font-semibold text-blue-600">Criar conta</button>}
+            {user && <button onClick={() => { setMenuOpen(false); void signOut(); }} className="px-4 py-2 text-left text-sm font-semibold text-red-600">Sair</button>}
             <button
               onClick={() => { setMenuOpen(false); navigate("/aprender"); }}
               className="mt-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg"

@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useAuth } from "../auth/AuthContext";
+import { supabase } from "../lib/supabase";
 
 const BADGES = [
   { name: "Mestre dos Elementos", icon: "🏆", earned: true, xp: 500 },
@@ -23,10 +26,23 @@ const maxMinutes = Math.max(...ACTIVITY.map(a => a.minutes));
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { user, profile, refreshProfile } = useAuth();
+  const [name, setName] = useState(profile?.name ?? user?.user_metadata?.name ?? "");
+  const [status, setStatus] = useState("");
+  const saveName = async () => {
+    if (!user || name.trim().length < 2) { setStatus("Informe um nome com pelo menos 2 caracteres."); return; }
+    const { error } = await supabase.from("profiles").update({ name: name.trim(), updated_at: new Date().toISOString() }).eq("id", user.id);
+    setStatus(error ? error.message : "Nome atualizado com sucesso.");
+    if (!error) await refreshProfile();
+  };
 
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-5 sm:flex sm:items-end sm:justify-between">
+          <div className="flex-1"><h2 className="font-bold text-slate-900">Dados da conta</h2><p className="mt-1 text-sm text-slate-500">{user?.email}</p><label className="mt-3 block max-w-md text-sm font-semibold text-slate-700">Nome<input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 font-normal outline-none focus:border-blue-500" /></label></div>
+          <div className="mt-3 sm:ml-4"><button onClick={() => void saveName()} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">Salvar nome</button>{status && <p className="mt-2 max-w-xs text-xs text-slate-600">{status}</p>}</div>
+        </div>
         {/* Profile header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-10 p-6 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl text-white">
           <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-4xl shadow-lg">

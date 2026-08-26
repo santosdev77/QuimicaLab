@@ -13,7 +13,7 @@ export default function ElementCard({ element, size = "md", selected = false, di
   const catClass = `cat-${element.category}`;
 
   const sizes = {
-    sm: "w-12 h-14 text-[9px]",
+    sm: "w-[4.5rem] h-[5.25rem] text-[11px]",
     md: "w-14 h-16 text-[10px]",
     lg: "w-16 h-[4.5rem] text-xs",
   };
@@ -22,7 +22,7 @@ export default function ElementCard({ element, size = "md", selected = false, di
     <button
       onClick={() => navigate(`/elemento/${element.number}`)}
       className={`
-        ${sizes[size]} relative flex flex-col items-center justify-center rounded-lg border
+        ${sizes[size]} relative flex flex-col items-center justify-center rounded-xl border
         transition-all duration-150 cursor-pointer group
         ${catClass}
         ${selected ? "ring-2 ring-blue-500 scale-105 shadow-lg" : ""}
@@ -36,7 +36,7 @@ export default function ElementCard({ element, size = "md", selected = false, di
     >
       <span
         className="font-mono font-semibold leading-none mb-0.5"
-        style={{ color: "var(--cat-text)", fontSize: size === "sm" ? "8px" : "9px" }}
+        style={{ color: "var(--cat-text)", fontSize: size === "sm" ? "11px" : "9px" }}
       >
         {element.number}
       </span>
@@ -44,14 +44,14 @@ export default function ElementCard({ element, size = "md", selected = false, di
         className="font-bold leading-none"
         style={{
           color: "var(--cat-text)",
-          fontSize: size === "sm" ? "14px" : size === "md" ? "17px" : "20px",
+          fontSize: size === "sm" ? "22px" : size === "md" ? "17px" : "20px",
         }}
       >
         {element.symbol}
       </span>
       <span
         className="leading-none mt-0.5 truncate w-full text-center px-0.5"
-        style={{ color: "var(--cat-text)", opacity: 0.8, fontSize: size === "sm" ? "7px" : "8px" }}
+        style={{ color: "var(--cat-text)", opacity: 0.85, fontSize: size === "sm" ? "11px" : "8px" }}
       >
         {element.name}
       </span>

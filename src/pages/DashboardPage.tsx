@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router";
+import { useAuth } from "../auth/AuthContext";
 
 const ACHIEVEMENTS = [
   { icon: "🏆", name: "Mestre dos Elementos", desc: "Estudou todos os grupos da tabela", earned: true },
@@ -21,12 +22,17 @@ const RECENT_ACTIVITY = [
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
 
   const earnedCount = ACHIEVEMENTS.filter(a => a.earned).length;
 
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+          <div><p className="text-xs font-bold uppercase tracking-wide text-blue-600">Área do aluno</p><h2 className="text-lg font-bold text-slate-900">Olá, {profile?.name ?? user?.user_metadata?.name ?? "Estudante"}</h2><p className="text-sm text-slate-500">{user?.email}</p></div>
+          <div className="text-right"><p className="text-xl font-extrabold text-blue-700">{profile?.xp ?? 0} XP</p><p className="text-xs text-slate-500">Nível {profile?.level ?? 1}</p></div>
+        </div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard de Progresso</h1>
         <p className="text-slate-500 mb-10">Acompanhe sua evolução e conquistas em tempo real.</p>
 
