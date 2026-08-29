@@ -151,6 +151,14 @@ export default function ElementDetailPage() {
     (a, b) => Number(a[0]) - Number(b[0]),
   );
 
+  const dailyUses: Record<string, { icon: string; label: string }[]> = {
+    Ferro: [{ icon: "PF", label: "Panelas" }, { icon: "CR", label: "Carros" }, { icon: "CT", label: "Construções" }],
+    Carbono: [{ icon: "GR", label: "Grafite" }, { icon: "CB", label: "Combustíveis" }, { icon: "OV", label: "Organismos vivos" }],
+    Silício: [{ icon: "PC", label: "Computadores" }, { icon: "VD", label: "Vidro" }, { icon: "CH", label: "Chips" }],
+    Oxigênio: [{ icon: "AR", label: "Respiração" }, { icon: "AG", label: "Água" }, { icon: "HP", label: "Hospitais" }],
+  };
+  const everyday = dailyUses[el.name] ?? el.uses.slice(0, 3).map((label, index) => ({ icon: ["01", "02", "03"][index], label }));
+
   return (
     <div className="min-h-screen bg-white">
 
@@ -163,6 +171,16 @@ export default function ElementDetailPage() {
           ← Voltar
         </button>
       </div>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
+          <p className="text-xs font-bold uppercase tracking-wide text-blue-600">Aplicações reais</p>
+          <h2 className="mt-2 text-2xl font-extrabold text-slate-900">Onde encontramos no dia a dia</h2>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            {everyday.map((item) => <div key={item.label} className="flex items-center gap-3 rounded-xl border border-white bg-white p-4 shadow-sm"><span className="grid h-10 w-10 place-items-center rounded-lg bg-blue-100 text-xs font-extrabold text-blue-700">{item.icon}</span><span className="font-semibold text-slate-800">{item.label}</span></div>)}
+          </div>
+        </div>
+      </section>
 
       {/* Hero */}
       <div

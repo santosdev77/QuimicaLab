@@ -1,143 +1,408 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { useAuth } from "../auth/AuthContext";
 import { quizQuestions } from "../data/quizData";
+import { useProgress } from "../progress/ProgressContext";
 
 type QuizState = "start" | "playing" | "result";
 
-const DIFFICULTY_LABELS: Record<string, string> = {
-  easy: "Fácil",
-  medium: "Médio",
-  hard: "Difícil",
+const pointsFor = (difficulty: string) =>
+  difficulty === "hard" ? 40 : difficulty === "medium" ? 30 : 20;
+
+const difficultyLabel: Record<string, string> = {
+  easy: "Facil",
+  medium: "Medio",
+  hard: "Dificil",
 };
-const DIFFICULTY_COLORS: Record<string, string> = {
+
+const difficultyColor: Record<string, string> = {
   easy: "bg-green-50 text-green-700 border-green-200",
   medium: "bg-yellow-50 text-yellow-700 border-yellow-200",
   hard: "bg-red-50 text-red-700 border-red-200",
 };
 
 export default function QuizPage() {
+  const { user } = useAuth();
+
+  const {
+    progress: userProgress,
+    loading,
+    error: progressError,
+    recordQuiz,
+  } = useProgress();
+
+  const navigate = useNavigate();
+
   const [state, setState] = useState<QuizState>("start");
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [answers, setAnswers] = useState<(number | null)[]>([]);
-  const [xp, setXp] = useState(2450);
-  const [showExplanation, setShowExplanation] = useState(false);
+  const [answers, setAnswers] = useState<number[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const question = quizQuestions[currentIdx];
-  const isLast = currentIdx === quizQuestions.length - 1;
+
+  const isLast =
+    currentIdx === quizQuestions.length - 1;
+
+  const correct = answers.filter(
+    (answer, index) =>
+      answer === quizQuestions[index]?.correctIndex
+  ).length;
+
+  const pct = answers.length
+    ? Math.round(
+        (correct / answers.length) * 100
+      )
+    : 0;
+
+  const earnedXp = answers.reduce(
+    (total, answer, index) =>
+      answer ===
+      quizQuestions[index]?.correctIndex
+        ? total +
+          pointsFor(
+            quizQuestions[index].difficulty
+          )
+        : total,
+    0
+  );
+
+  const xp = userProgress?.xp ?? 0;
+
+  const level = Math.max(
+    1,
+    Math.floor(xp / 250) + 1
+  );
+
+  const levelStart =
+    (level - 1) * 250;
+
+  const levelEnd =
+    level * 250;
+
+  const progress = Math.min(
+    100,
+    Math.max(
+      0,
+      ((xp - levelStart) / 250) * 100
+    )
+  );
+
+  const stats = [
+    {
+      label: "XP Total",
+      value: xp.toLocaleString("pt-BR"),
+      mark: "XP",
+    },
+    {
+      label: "Nivel",
+      value: String(level),
+      mark: "NV",
+    },
+    {
+      label: "Sequencia",
+      value: `${
+        userProgress?.current_streak ?? 0
+      } dias`,
+      mark: "ST",
+    },
+    {
+      label: "Respondidas",
+      value: String(
+        userProgress?.total_answers ?? 0
+      ),
+      mark: "QS",
+    },
+    {
+      label: "Taxa de acerto",
+      value:
+        userProgress?.total_answers
+          ? `${Math.round(
+              (userProgress.correct_answers /
+                userProgress.total_answers) *
+                100
+            )}%`
+          : "0%",
+      mark: "%",
+    },
+  ];
 
   const startQuiz = () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
     setState("playing");
     setCurrentIdx(0);
     setSelected(null);
     setAnswers([]);
-    setShowExplanation(false);
+    setError("");
+    setSaving(false);
   };
 
-  const handleAnswer = useCallback((idx: number) => {
+  const answer = (index: number) => {
     if (selected !== null) return;
-    setSelected(idx);
-    setShowExplanation(true);
-    const gained = idx === question.correctIndex
-      ? question.difficulty === "hard" ? 40 : question.difficulty === "medium" ? 30 : 20
-      : 0;
-    setXp(v => v + gained);
-    setAnswers(prev => [...prev, idx]);
-  }, [selected, question]);
 
-  const next = () => {
-    if (isLast) {
-      setState("result");
-    } else {
-      setCurrentIdx(i => i + 1);
-      setSelected(null);
-      setShowExplanation(false);
-    }
+    setSelected(index);
+
+    setAnswers((current) => [
+      ...current,
+      index,
+    ]);
   };
 
-  const correct = answers.filter((a, i) => a === quizQuestions[i]?.correctIndex).length;
-  const pct = answers.length > 0 ? Math.round((correct / answers.length) * 100) : 0;
+  const next = async () => {
+    if (!isLast) {
+      setCurrentIdx((index) => index + 1);
+      setSelected(null);
+      return;
+    }
 
-  const STATS = [
-    { label: "XP Total", value: xp.toLocaleString("pt-BR"), icon: "⚡" },
-    { label: "Nível", value: "12", icon: "🎯" },
-    { label: "Sequência", value: "7 dias", icon: "🔥" },
-    { label: "Respondidas", value: "148", icon: "📝" },
-    { label: "Taxa de acerto", value: "89%", icon: "✅" },
-  ];
+    if (saving) return;
+
+    setSaving(true);
+    setError("");
+
+    /*
+      Neste ponto "answers" já contém todas
+      as respostas, inclusive a última,
+      porque o botão só aparece depois
+      que uma alternativa é selecionada.
+    */
+
+    const finalAnswers = [...answers];
+
+    const finalCorrect =
+      finalAnswers.filter(
+        (answer, index) =>
+          answer ===
+          quizQuestions[index]?.correctIndex
+      ).length;
+
+    const finalXp =
+      finalAnswers.reduce(
+        (total, answer, index) =>
+          answer ===
+          quizQuestions[index]?.correctIndex
+            ? total +
+              pointsFor(
+                quizQuestions[index].difficulty
+              )
+            : total,
+        0
+      );
+
+    const saved = await recordQuiz({
+      xp: finalXp,
+      correctAnswers: finalCorrect,
+      totalAnswers: finalAnswers.length,
+    });
+
+    if (!saved) {
+      setError(
+        "Seu resultado foi exibido, mas nao foi salvo. Tente novamente mais tarde."
+      );
+    }
+
+    setSaving(false);
+    setState("result");
+  };
 
   if (state === "start") {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Desafios</h1>
-          <p className="text-slate-500 mb-10">Teste seus conhecimentos, ganhe XP e suba de nível!</p>
+      <div className="min-h-screen bg-white dark:bg-slate-950">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-10">
-            {STATS.map(s => (
-              <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-center">
-                <div className="text-2xl mb-1">{s.icon}</div>
-                <div className="text-xl font-bold text-slate-900">{s.value}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+            Desafios
+          </h1>
 
-          {/* XP bar */}
-          <div className="bg-blue-600 rounded-2xl p-6 text-white mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <div className="font-bold text-xl">Nível 12 — Explorador Químico</div>
-                <div className="text-blue-200 text-sm">2.450 / 3.000 XP</div>
-              </div>
-              <div className="text-5xl font-extrabold font-mono text-white/90">12</div>
+          <p className="mb-8 mt-2 text-slate-500">
+            Teste seus conhecimentos,
+            ganhe XP e acompanhe seu
+            proprio progresso.
+          </p>
+
+          {!user && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+
+              <span>
+                Entre na sua conta para
+                registrar seus resultados
+                pessoais.
+              </span>
+
+              <button
+                onClick={() =>
+                  navigate("/login")
+                }
+                className="rounded-lg bg-blue-600 px-4 py-2 font-bold text-white"
+              >
+                Entrar
+              </button>
             </div>
-            <div className="h-3 bg-blue-900/50 rounded-full overflow-hidden">
-              <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: "82%" }} />
-            </div>
-          </div>
+          )}
 
-          {/* Question preview */}
-          <div className="grid lg:grid-cols-2 gap-6 mb-8">
-            <div>
-              <h2 className="font-bold text-slate-900 text-lg mb-4">Banco de questões</h2>
-              <div className="space-y-2">
-                {quizQuestions.slice(0, 6).map((q, i) => (
-                  <div key={q.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                    <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 text-xs font-bold flex items-center justify-center flex-shrink-0">
-                      {i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-slate-700 font-medium truncate">{q.question}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{q.topic}</div>
-                    </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${DIFFICULTY_COLORS[q.difficulty]}`}>
-                      {DIFFICULTY_LABELS[q.difficulty]}
-                    </span>
-                  </div>
-                ))}
-                <div className="text-center text-sm text-slate-400 py-1">
-                  +{quizQuestions.length - 6} questões adicionais
+          {(error || progressError) && (
+            <p className="mb-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              {error || progressError}
+            </p>
+          )}
+
+          <div className="mb-10 grid grid-cols-2 gap-4 sm:grid-cols-5">
+
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-center dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div className="mx-auto mb-2 grid h-8 w-8 place-items-center rounded-lg bg-blue-100 text-[10px] font-extrabold text-blue-700">
+                  {stat.mark}
+                </div>
+
+                <div className="text-xl font-bold text-slate-900 dark:text-white">
+                  {loading
+                    ? "..."
+                    : stat.value}
+                </div>
+
+                <div className="mt-0.5 text-xs text-slate-500">
+                  {stat.label}
                 </div>
               </div>
+            ))}
+
+          </div>
+
+          <section className="mb-8 rounded-2xl bg-blue-600 p-6 text-white">
+
+            <div className="mb-3 flex items-center justify-between">
+
+              <div>
+                <div className="text-xl font-bold">
+                  Nivel {level}
+                </div>
+
+                <div className="text-sm text-blue-200">
+                  {xp.toLocaleString(
+                    "pt-BR"
+                  )}{" "}
+                  /{" "}
+                  {levelEnd.toLocaleString(
+                    "pt-BR"
+                  )}{" "}
+                  XP
+                </div>
+              </div>
+
+              <div className="font-mono text-5xl font-extrabold text-white/90">
+                {level}
+              </div>
+
             </div>
 
-            <div className="flex flex-col justify-center">
-              <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-8 text-white text-center">
-                <div className="text-5xl mb-4">🧪</div>
-                <h3 className="text-xl font-bold mb-2">Pronto para o desafio?</h3>
-                <p className="text-blue-200 text-sm mb-6 leading-relaxed">
-                  {quizQuestions.length} questões sobre Química. Ganhe até 40 XP por resposta correta!
-                </p>
-                <button
-                  onClick={startQuiz}
-                  className="px-8 py-3.5 bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition-colors shadow-lg w-full"
-                >
-                  Começar Quiz →
-                </button>
-              </div>
+            <div className="h-3 overflow-hidden rounded-full bg-blue-900/50">
+
+              <div
+                className="h-full rounded-full bg-white/80 transition-all"
+                style={{
+                  width: `${progress}%`,
+                }}
+              />
+
             </div>
+
+          </section>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+
+            <section>
+
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
+                Banco de questoes
+              </h2>
+
+              <div className="space-y-2">
+
+                {quizQuestions
+                  .slice(0, 6)
+                  .map(
+                    (item, index) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900"
+                      >
+
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
+                          {index + 1}
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+
+                          <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">
+                            {item.question}
+                          </p>
+
+                          <p className="mt-0.5 text-xs text-slate-400">
+                            {item.topic}
+                          </p>
+
+                        </div>
+
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                            difficultyColor[
+                              item.difficulty
+                            ]
+                          }`}
+                        >
+                          {
+                            difficultyLabel[
+                              item.difficulty
+                            ]
+                          }
+                        </span>
+
+                      </div>
+                    )
+                  )}
+
+              </div>
+
+            </section>
+
+            <section className="flex flex-col justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-center text-white">
+
+              <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-white/15 text-lg font-extrabold">
+                QZ
+              </div>
+
+              <h2 className="mt-4 text-xl font-bold">
+                Pronto para o desafio?
+              </h2>
+
+              <p className="mt-2 text-sm leading-relaxed text-blue-100">
+                {quizQuestions.length}{" "}
+                questoes de Quimica.
+                Ganhe ate 40 XP por
+                resposta correta.
+              </p>
+
+              <button
+                onClick={startQuiz}
+                className="mt-6 w-full rounded-xl bg-white px-8 py-3.5 font-bold text-blue-700 transition-colors hover:bg-blue-50"
+              >
+                {user
+                  ? "Comecar quiz"
+                  : "Entrar para comecar"}
+              </button>
+
+            </section>
+
           </div>
+
         </div>
       </div>
     );
@@ -145,149 +410,287 @@ export default function QuizPage() {
 
   if (state === "result") {
     return (
-      <div className="min-h-screen bg-white">
-        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-          <div className="text-6xl mb-4">{pct >= 80 ? "🏆" : pct >= 50 ? "👍" : "📚"}</div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            {pct >= 80 ? "Excelente!" : pct >= 50 ? "Bom trabalho!" : "Continue estudando!"}
-          </h1>
-          <p className="text-slate-500 mb-8">Você concluiu o quiz</p>
+      <div className="min-h-screen bg-white dark:bg-slate-950">
 
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
-              <div className="text-3xl font-bold text-slate-900">{correct}</div>
-              <div className="text-sm text-slate-500 mt-1">Acertos</div>
-            </div>
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
-              <div className="text-3xl font-bold text-slate-900">{pct}%</div>
-              <div className="text-sm text-slate-500 mt-1">Aproveitamento</div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-              <div className="text-3xl font-bold text-blue-600">+{xp - 2450}</div>
-              <div className="text-sm text-blue-500 mt-1">XP ganho</div>
-            </div>
+        <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-100 text-lg font-extrabold text-blue-700">
+            {pct}%
           </div>
 
-          <div className="flex gap-3 justify-center">
+          <h1 className="mt-5 text-3xl font-bold text-slate-900 dark:text-white">
+            {pct >= 80
+              ? "Excelente!"
+              : pct >= 50
+              ? "Bom trabalho!"
+              : "Continue estudando!"}
+          </h1>
+
+          <p className="mt-2 text-slate-500">
+            Voce concluiu o quiz.
+          </p>
+
+          <div className="my-8 grid grid-cols-3 gap-4">
+
+            <ResultCard
+              value={String(correct)}
+              label="Acertos"
+            />
+
+            <ResultCard
+              value={`${pct}%`}
+              label="Aproveitamento"
+            />
+
+            <ResultCard
+              value={`+${earnedXp}`}
+              label="XP ganho"
+              accent
+            />
+
+          </div>
+
+          {saving && (
+            <p className="mb-4 text-sm text-slate-500">
+              Salvando resultado...
+            </p>
+          )}
+
+          {error && (
+            <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-center gap-3">
+
             <button
               onClick={startQuiz}
-              className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
+              className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white hover:bg-blue-700"
             >
               Tentar novamente
             </button>
+
             <button
-              onClick={() => setState("start")}
-              className="px-6 py-3 border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 transition-colors"
+              onClick={() =>
+                setState("start")
+              }
+              className="rounded-xl border border-slate-200 px-6 py-3 font-medium text-slate-700 dark:text-slate-200"
             >
-              Ver estatísticas
+              Ver estatisticas
             </button>
+
           </div>
+
         </div>
       </div>
     );
   }
 
-  // Playing state
-  const progress = ((currentIdx) / quizQuestions.length) * 100;
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        {/* Progress bar */}
-        <div className="flex items-center gap-3 mb-6">
+    <div className="min-h-screen bg-white dark:bg-slate-950">
+
+      <div className="mx-auto max-w-2xl px-4 py-10">
+
+        <div className="mb-6 flex items-center gap-3">
+
           <button
-            onClick={() => setState("start")}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
-          >
-            ✕
-          </button>
-          <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="text-sm font-mono text-slate-400 w-14 text-right">
-            {currentIdx + 1}/{quizQuestions.length}
-          </span>
-        </div>
-
-        {/* XP indicator */}
-        <div className="flex items-center justify-between mb-8">
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${DIFFICULTY_COLORS[question.difficulty]}`}>
-            {DIFFICULTY_LABELS[question.difficulty]}
-          </span>
-          <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
-            ⚡ +{question.difficulty === "hard" ? 40 : question.difficulty === "medium" ? 30 : 20} XP
-          </span>
-        </div>
-
-        {/* Question */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-sm">
-          <div className="text-xs text-slate-400 mb-3 font-medium">{question.topic}</div>
-          <h2 className="text-xl font-bold text-slate-900 leading-snug">{question.question}</h2>
-        </div>
-
-        {/* Options */}
-        <div className="space-y-3 mb-6">
-          {question.options.map((opt, idx) => {
-            const isCorrect = idx === question.correctIndex;
-            const isSelected = selected === idx;
-            let cls = "w-full text-left px-5 py-4 rounded-xl border font-medium transition-all duration-150 ";
-            if (selected === null) {
-              cls += "bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50 cursor-pointer";
-            } else if (isCorrect) {
-              cls += "bg-green-50 border-green-400 text-green-800";
-            } else if (isSelected) {
-              cls += "bg-red-50 border-red-400 text-red-800";
-            } else {
-              cls += "bg-slate-50 border-slate-200 text-slate-400 cursor-default";
+            onClick={() =>
+              setState("start")
             }
+            className="text-slate-400 hover:text-slate-600"
+          >
+            X
+          </button>
 
-            return (
-              <button key={opt} className={cls} onClick={() => handleAnswer(idx)}>
-                <div className="flex items-center gap-3">
-                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                    selected === null ? "bg-slate-100 text-slate-500" :
-                    isCorrect ? "bg-green-500 text-white" :
-                    isSelected ? "bg-red-500 text-white" :
-                    "bg-slate-100 text-slate-400"
-                  }`}>
-                    {selected !== null && isCorrect ? "✓" :
-                     selected !== null && isSelected ? "✗" :
-                     ["A","B","C","D"][idx]}
-                  </span>
-                  <span>{opt}</span>
-                </div>
-              </button>
-            );
-          })}
+          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+
+            <div
+              className="h-full rounded-full bg-blue-600"
+              style={{
+                width: `${
+                  ((currentIdx +
+                    (selected !== null
+                      ? 1
+                      : 0)) /
+                    quizQuestions.length) *
+                  100
+                }%`,
+              }}
+            />
+
+          </div>
+
+          <span className="w-14 text-right font-mono text-sm text-slate-400">
+            {currentIdx + 1}/
+            {quizQuestions.length}
+          </span>
+
         </div>
 
-        {/* Explanation */}
-        {showExplanation && (
-          <div className={`rounded-2xl p-4 mb-6 text-sm leading-relaxed ${
-            selected === question.correctIndex
-              ? "bg-green-50 border border-green-200 text-green-800"
-              : "bg-blue-50 border border-blue-200 text-blue-800"
-          }`}>
-            <strong className="block mb-1">
-              {selected === question.correctIndex ? "✓ Correto!" : "✗ Incorreto"}
-            </strong>
-            {question.explanation}
-          </div>
+        <div className="mb-6 flex items-center justify-between">
+
+          <span
+            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+              difficultyColor[
+                question.difficulty
+              ]
+            }`}
+          >
+            {
+              difficultyLabel[
+                question.difficulty
+              ]
+            }
+          </span>
+
+          <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
+            +
+            {pointsFor(
+              question.difficulty
+            )}{" "}
+            XP
+          </span>
+
+        </div>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+
+          <p className="mb-3 text-xs font-medium text-slate-400">
+            {question.topic}
+          </p>
+
+          <h2 className="text-xl font-bold leading-snug text-slate-900 dark:text-white">
+            {question.question}
+          </h2>
+
+        </section>
+
+        <div className="mb-6 space-y-3">
+
+          {question.options.map(
+            (option, index) => {
+              const isCorrect =
+                index ===
+                question.correctIndex;
+
+              const isSelected =
+                selected === index;
+
+              const style =
+                selected === null
+                  ? "border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50 dark:bg-slate-900 dark:text-slate-200"
+                  : isCorrect
+                  ? "border-green-400 bg-green-50 text-green-800"
+                  : isSelected
+                  ? "border-red-400 bg-red-50 text-red-800"
+                  : "border-slate-200 bg-slate-50 text-slate-400";
+
+              return (
+                <button
+                  key={option}
+                  onClick={() =>
+                    answer(index)
+                  }
+                  className={`w-full rounded-xl border px-5 py-4 text-left font-medium transition-all ${style}`}
+                >
+
+                  <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-slate-100 text-xs font-bold text-slate-500">
+                    {selected !== null &&
+                    isCorrect
+                      ? "OK"
+                      : String.fromCharCode(
+                          65 + index
+                        )}
+                  </span>
+
+                  {option}
+
+                </button>
+              );
+            }
+          )}
+
+        </div>
+
+        {selected !== null && (
+          <>
+
+            <div
+              className={`mb-6 rounded-xl p-4 text-sm ${
+                selected ===
+                question.correctIndex
+                  ? "border border-green-200 bg-green-50 text-green-800"
+                  : "border border-blue-200 bg-blue-50 text-blue-800"
+              }`}
+            >
+
+              <b>
+                {selected ===
+                question.correctIndex
+                  ? "Resposta correta."
+                  : "Resposta incorreta."}
+              </b>
+
+              <p className="mt-1">
+                {question.explanation}
+              </p>
+
+            </div>
+
+            <button
+              disabled={saving}
+              onClick={() =>
+                void next()
+              }
+              className="w-full rounded-xl bg-blue-600 py-3.5 font-bold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {isLast
+                ? "Ver resultado"
+                : "Proxima questao"}
+            </button>
+
+          </>
         )}
 
-        {/* Next */}
-        {selected !== null && (
-          <button
-            onClick={next}
-            className="w-full py-3.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
-          >
-            {isLast ? "Ver resultado →" : "Próxima questão →"}
-          </button>
-        )}
       </div>
+
+    </div>
+  );
+}
+
+function ResultCard({
+  value,
+  label,
+  accent = false,
+}: {
+  value: string;
+  label: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        accent
+          ? "border-blue-200 bg-blue-50"
+          : "border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"
+      }`}
+    >
+
+      <div
+        className={`text-3xl font-bold ${
+          accent
+            ? "text-blue-600"
+            : "text-slate-900 dark:text-white"
+        }`}
+      >
+        {value}
+      </div>
+
+      <div className="mt-1 text-sm text-slate-500">
+        {label}
+      </div>
+
     </div>
   );
 }

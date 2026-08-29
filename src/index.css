@@ -2,6 +2,8 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -20,6 +22,21 @@ body {
   background: #ffffff;
   color: #0f172a;
 }
+
+html.dark body { background: #0b1220; color: #e2e8f0; }
+html.dark .bg-white { background-color: #111827 !important; }
+html.dark .bg-slate-50 { background-color: #172033 !important; }
+html.dark .bg-slate-100 { background-color: #1e293b !important; }
+html.dark .bg-blue-50 { background-color: #14213d !important; }
+html.dark .bg-teal-50 { background-color: #102a2c !important; }
+html.dark .bg-amber-50 { background-color: #332616 !important; }
+html.dark .text-slate-900 { color: #f1f5f9 !important; }
+html.dark .text-slate-800 { color: #e2e8f0 !important; }
+html.dark .text-slate-700 { color: #cbd5e1 !important; }
+html.dark .text-slate-600, html.dark .text-slate-500 { color: #94a3b8 !important; }
+html.dark .border-slate-100, html.dark .border-slate-200 { border-color: #334155 !important; }
+html.dark input, html.dark select, html.dark textarea { background: #172033; color: #e2e8f0; border-color: #475569; }
+html.dark .from-white, html.dark .via-blue-50\/40, html.dark .to-white { --tw-gradient-from: #0b1220 !important; --tw-gradient-via: #101a2c !important; --tw-gradient-to: #0b1220 !important; }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -59,10 +76,16 @@ body {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-6px); }
 }
+@keyframes beaker-slosh {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-5px) rotate(-2deg); }
+  75% { transform: translateX(5px) rotate(2deg); }
+}
 
 .animate-float-up  { animation: float-up 0.6s ease forwards; }
 .animate-slide-in  { animation: slide-in 0.5s ease forwards; }
 .animate-fade-in   { animation: fade-in 0.4s ease forwards; }
+.animate-beaker-slosh { animation: beaker-slosh 0.18s ease-in-out 4; }
 
 .orbit-1 { animation: orbit-cw  3.5s linear infinite; }
 .orbit-2 { animation: orbit-ccw 5s   linear infinite; }

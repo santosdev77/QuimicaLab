@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import AtomVisualizer from "../components/AtomVisualizer";
+import ChemicalMixturesLab from "../components/ChemicalMixturesLab";
 import { elements } from "../data/elements";
 
-type LabMode = "home" | "atom" | "ion" | "molecule";
+type LabMode = "home" | "atom" | "ion" | "molecule" | "mixtures";
 
 const COMMON_ELEMENTS = [1, 2, 6, 7, 8, 11, 12, 17, 20, 26];
 
@@ -229,7 +230,7 @@ function handleCustomMolecule() {
         {/* HOME */}
         {mode === "home" && (
           <div>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
 
               {/* ÁTOMO */}
               <button
@@ -250,6 +251,27 @@ function handleCustomMolecule() {
                 </p>
 
                 <span className="text-blue-600 font-semibold text-sm">
+                  Experimentar →
+                </span>
+              </button>
+
+              <button
+                onClick={() => setMode("mixtures")}
+                className="group text-left bg-white border border-cyan-100 rounded-3xl p-7 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-cyan-50 flex items-center justify-center text-2xl font-bold text-cyan-700 mb-5 group-hover:scale-110 transition-transform">
+                  MX
+                </div>
+
+                <h3 className="font-bold text-xl text-slate-900 mb-3">
+                  Misturas Quimicas
+                </h3>
+
+                <p className="text-sm text-slate-500 leading-relaxed mb-6">
+                  Combine reagentes em um bequer e observe cores, pH, calor e precipitados.
+                </p>
+
+                <span className="text-cyan-700 font-semibold text-sm">
                   Experimentar →
                 </span>
               </button>
@@ -1059,6 +1081,8 @@ function handleCustomMolecule() {
 
           </div>
         )}
+
+        {mode === "mixtures" && <ChemicalMixturesLab onBack={() => setMode("home")} />}
 
       </div>
     </div>

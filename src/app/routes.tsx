@@ -11,6 +11,10 @@ import DashboardPage from "../pages/DashboardPage";
 import ChemistryCalculatorPage from "../pages/ChemistryCalculatorPage";
 import ProtectedRoute from "../auth/ProtectedRoute";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "../pages/AuthPages";
+import SpectroscopyPage from "../pages/SpectroscopyPage";
+import DrugDecoderPage from "../pages/DrugDecoderPage";
+import VirtualLabPage from "../pages/VirtualLabPage";
+import ChemistryMapPage from "../pages/ChemistryMapPage";
 
 export const router = createBrowserRouter([
   {
@@ -25,6 +29,10 @@ export const router = createBrowserRouter([
       { path: "desafios", Component: QuizPage },
       { path: "conquistas", Component: DashboardPage },
       { path: "calculadora", Component: ChemistryCalculatorPage },
+      { path: "medicamentos", Component: DrugDecoderPage },
+      { path: "espectroscopia", Component: SpectroscopyPage },
+      { path: "lab-virtual", Component: VirtualLabPage },
+      { path: "quimica-do-mapa", Component: ChemistryMapPage },
       { path: "login", Component: LoginPage },
       { path: "cadastro", Component: RegisterPage },
       { path: "esqueci-senha", Component: ForgotPasswordPage },
