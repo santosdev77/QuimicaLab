@@ -1,3 +1,10 @@
+import ReactGA from "react-ga4";
+
+ReactGA.initialize("G-FYW3D9R6FR");
+ReactGA.send("pageview");
+
+
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
